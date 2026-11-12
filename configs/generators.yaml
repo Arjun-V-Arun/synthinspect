@@ -1,16 +1,32 @@
 # Generator settings. Change these, not the code.
 
 copypaste:
-  blend: poisson              # poisson (seamless clone) or alpha (feathered)
-  feather: 5
+  # The RGCB pipeline without its style-transfer step, so rgcb vs copypaste isolates what NST adds.
+  blend: radial               # Gaussian-faded square patch, as the RGCB generator pastes colonies
+  radial_sigma: 0.8           # RGCB value
+  radial_pad: 0.25            # margin around the defect so it sits in the bright middle of the fade
   context: 8
 
 rgcb:
-  # Set these to match what was actually done at RGCB.
-  scope: global               # global = restyle the whole composite; local = only around the defect
-  style_source: normal        # style image: a good part (normal) or another training defect (defect)
-  blend: poisson
-  nst: {size: 640, steps: 150, lr: 0.02, content_weight: 1.0, style_weight: 10000.0, tv_weight: 0.001}
+  # Mirrors the generator used at RGCB (Pawlowski et al., Sci. Rep. 2022;
+  # github.com/jarek-pawlowski/microbial-dataset-generation): real defects pasted onto clean
+  # parts with a Gaussian fade, then the WHOLE image restyled toward a clean part with
+  # photorealistic HRNet style transfer (Li et al. 2019), warm-started image to image.
+  scope: global               # confirmed: whole images were restyled
+  style_source: normal        # confirmed: style images were clean plates (here: good parts)
+  blend: radial
+  radial_sigma: 0.8
+  radial_pad: 0.25
+  nst_method: hrnet           # "gatys" switches to pixel-optimisation NST for comparison
+  nst:
+    size: 640                 # long side during style transfer; the detector trains at 640
+    steps: 500                # RGCB value
+    lr: 0.005                 # RGCB value
+    lr_step: 200              # RGCB value
+    lr_gamma: 0.9             # RGCB value
+    content_weight: 150.0     # RGCB value
+    style_weight: 0.5         # RGCB value
+    warm_start: true          # RGCB: each image starts from the previous image's network
 
 # Both diffusion methods share one backbone so they differ only where the papers differ.
 # The official stabilityai SD 2 repos return 404 since Nov 2025, so this uses the maintained

@@ -4,7 +4,7 @@
 
 A new part goes into production with hundreds of good samples but only five to eight photos of each defect. This project asks which way of making synthetic defects helps a detector most, measured strictly:
 
-1. **The RGCB approach**: labelled composites made realistic with neural style transfer (from my 2024 internship at RGCB).
+1. **The RGCB approach**: real defects pasted onto clean parts, then the whole image restyled with photorealistic HRNet style transfer, as in the generator I used at RGCB in 2024.
 2. **DefectFill** (CVPR 2025).
 3. **MAGIC** (CVPR 2026 Findings).
 

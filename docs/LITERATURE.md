@@ -8,7 +8,7 @@ A new part goes into production. You have a few hundred photos of good parts and
 
 The project compares three ways of making defect images:
 
-1. **The RGCB approach** (what Arjun did at RGCB in 2024): build labelled composites, then use neural style transfer (NST) to make them look real while keeping their structure, so the labels stay valid.
+1. **The RGCB approach** (what Arjun used at RGCB in 2024, from Pawłowski, Majchrowska and Golan, *Scientific Reports* 2022): paste real objects onto clean backgrounds with a Gaussian fade, then restyle the whole image toward a real clean image with photorealistic HRNet style transfer (Li et al. 2019), warm-started from image to image. The structure, and so the labels, stay put.
 2. **Two recent diffusion methods**, chosen below.
 
 ## 2. Selection Criteria for the Two Recent Methods
@@ -158,6 +158,8 @@ Each of these is a reason the numbers here will not match the papers. The point 
 ## References
 
 **Defect generation**
+- RGCB pipeline: Pawłowski, Majchrowska and Golan, "Generation of microbial colonies dataset with deep learning style transfer", *Scientific Reports* 12, 5212 (2022); code <https://github.com/jarek-pawlowski/microbial-dataset-generation>
+- Photorealistic style transfer: Li, Ye and Li, "High-resolution network for photorealistic style transfer", arXiv:1904.11617 (2019); code (MIT) <https://github.com/limingcv/Photorealistic-Style-Transfer>
 - AnomalyDiffusion: <https://www.alphaxiv.org/abs/2312.05767>
 - DualAnoDiff (CVPR 2025): <https://openaccess.thecvf.com/content/CVPR2025/papers/Jin_Dual-Interrelated_Diffusion_Model_for_Few-Shot_Anomaly_Image_Generation_CVPR_2025_paper.pdf>, code <https://github.com/yinyjin/DualAnoDiff>
 - DefectFill (CVPR 2025): <https://openaccess.thecvf.com/content/CVPR2025/papers/Song_DefectFill_Realistic_Defect_Generation_with_Inpainting_Diffusion_Model_for_Visual_CVPR_2025_paper.pdf>

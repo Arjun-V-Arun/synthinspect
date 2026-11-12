@@ -38,9 +38,14 @@ Category knowledge lives in the config, not the code. For example, `metal_nut` h
 
 ## 3. The Four Generators
 
-**Copy-paste** (`gen/copypaste.py`) moves a real defect's pixels with exactly the transform used for its mask, then blends with Poisson seamless cloning. A test caught that a cloning margin under about 6 pixels makes OpenCV erase the defect's edge, and the defect fades away; the margin is now enforced.
+**Copy-paste** (`gen/copypaste.py`) moves a real defect's pixels with exactly the transform used for its mask, then fades a square patch around it in with a Gaussian alpha (sigma 0.8), the way the RGCB generator pastes colonies onto empty dishes. Poisson cloning is kept as an option; a test caught that a cloning margin under about 6 pixels makes OpenCV erase the defect's edge.
 
-**RGCB** (`gen/rgcb.py`, `gen/nst.py`) is copy-paste plus Gatys neural style transfer toward a real image of the same part, starting from the composite so structure (and the label) is kept. This is the idea from your RGCB internship moved to a new domain. **Check `configs/generators.yaml` → `rgcb` and set `scope` and `style_source` to match what you actually did there.**
+**RGCB** (`gen/rgcb.py`, `gen/nst_hrnet.py`) is that copy-paste plus the RGCB pipeline's style step (Pawłowski et al., *Scientific Reports* 2022). A small high-resolution network (Li et al. 2019) is trained to restyle the whole composite toward a real good part:
+- **Losses:** content on VGG relu4_2, style on relu1_1 to relu5_1, weighted 150 to 0.5.
+- **Schedule:** 500 Adam steps per image, learning rate 0.005, decayed every 200 steps.
+- **Warm start:** each image starts from the network trained on the previous one, and that network is saved after every image so an interrupted run resumes with it.
+
+Copy-paste on its own is the same pipeline minus this step, so comparing the two isolates what style transfer adds. Gatys pixel-optimisation NST (`gen/nst.py`) stays available as `nst_method: gatys`.
 
 **DefectFill** (`gen/sd_inpaint.py`, `gen/sd_generators.py`) fine-tunes SD inpainting with LoRA so the token `sks` means "this defect". Three losses:
 
