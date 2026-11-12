@@ -102,3 +102,15 @@ def test_full_pipeline(smoke, monkeypatch):
     assert 'inspect_decisions_total{decision="' in m and "inspect_latency_ms_count 1" in m
     card = client.get("/v1/model").json()
     assert card["condition"] in {"copypaste", "rgcb"} and "license" in card
+
+
+def test_skip_synthesis_removes_types_only_for_generators(split):
+    from synthinspect.pipeline import synthesis_split
+
+    cfg = {"categories": {"widget": {"skip_synthesis": ["stain"]}}}
+    sub = synthesis_split(cfg, "widget", split)
+    assert sub.defect_types == ["scratch"] and all(s.defect_type == "scratch" for s in sub.defect_train)
+    assert split.defect_types == ["scratch", "stain"]  # the original split (used for datasets and tests) is untouched
+    assert synthesis_split({"categories": {"widget": {}}}, "widget", split) is split
+    with pytest.raises(ValueError):
+        synthesis_split({"categories": {"widget": {"skip_synthesis": ["dent"]}}}, "widget", split)

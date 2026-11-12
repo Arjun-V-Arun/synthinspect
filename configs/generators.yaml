@@ -2,10 +2,12 @@
 
 copypaste:
   # The RGCB pipeline without its style-transfer step, so rgcb vs copypaste isolates what NST adds.
-  blend: radial               # Gaussian-faded square patch, as the RGCB generator pastes colonies
-  radial_sigma: 0.8           # RGCB value
-  radial_pad: 0.25            # margin around the defect so it sits in the bright middle of the fade
-  context: 8
+  blend: alpha                # Gaussian fade along the defect's outline, reaching zero (no patch edge)
+  feather: 12                 # width of the fade, pixels
+  context: 6                  # opaque margin around the defect mask, pixels
+  # blend: radial             # RGCB's exact square patch (sigma 0.8): left straight seams on metal_nut
+  radial_sigma: 0.8
+  radial_pad: 0.25
 
 rgcb:
   # Mirrors the generator used at RGCB (Pawlowski et al., Sci. Rep. 2022;
@@ -14,7 +16,9 @@ rgcb:
   # photorealistic HRNet style transfer (Li et al. 2019), warm-started image to image.
   scope: global               # confirmed: whole images were restyled
   style_source: normal        # confirmed: style images were clean plates (here: good parts)
-  blend: radial
+  blend: alpha                # same paste as copypaste above (see the note there)
+  feather: 12
+  context: 6
   radial_sigma: 0.8
   radial_pad: 0.25
   nst_method: hrnet           # "gatys" switches to pixel-optimisation NST for comparison

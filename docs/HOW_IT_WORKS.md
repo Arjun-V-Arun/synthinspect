@@ -32,13 +32,25 @@ Three places where leakage usually sneaks in, and how each is closed:
 
 ## 2. The Mask Bank
 
-Every generator paints into the same kind of region, so the comparison is about how each one paints, not where. A training mask is flipped, rotated and scaled, then placed on a new good part, and kept only if at least 90% of it lands on the part. That 90% rule is MAGIC's own alignment score, with a simple colour-distance foreground (`data/foreground.py`) instead of U2-Net and keypoint matching.
+Every generator paints into the same kind of region, so the comparison is about how each one paints, not where. A training mask is moved onto a new good part and kept only if at least 90% of it lands on the part. That 90% rule is MAGIC's own alignment score, using a simple colour-distance foreground (`data/foreground.py`) instead of U2-Net.
 
-Category knowledge lives in the config, not the code. For example, `metal_nut` has `flip: false`, because a mirrored nut is itself one of the defect types.
+How the mask moves is set per category (`placement.mode`):
+
+- **`aligned`** (`metal_nut`, `bottle`): MVTec shoots these parts in a fixed pose, so the defect keeps its position relative to the part's centre, plus a small jitter. Bottle adds `orbit: any`, since a round mouth looks the same at every angle.
+- **`axis`** (`screw`): screws lie at random angles, so the defect is carried along the screw's own main axis. Head damage lands on the head and thread damage on the thread; the head/tip ambiguity is settled by silhouette overlap.
+- **`free`** (textures): anywhere, any rotation.
+
+For `metal_nut` and `screw`, `register: true` then refines the pose with image registration (OpenCV ECC, rotation and shift, with the defect masked out), so the source part's edges land exactly on the host's. On a synthetic part turned 6 degrees, this cuts the placement error from about 4 pixels to under 0.1.
+
+Whole-part defects are listed under `skip_synthesis` and no generator makes them: metal_nut's `flip` is the entire nut upside down, and pasting it stacks one nut on another. Detectors still train on the real ones.
+
+The first real `metal_nut` batches are why this exists. Free placement pasted pieces of nut lobes at wrong angles, and centre-only alignment still left faint double edges along long scratches.
 
 ## 3. The Four Generators
 
-**Copy-paste** (`gen/copypaste.py`) moves a real defect's pixels with exactly the transform used for its mask, then fades a square patch around it in with a Gaussian alpha (sigma 0.8), the way the RGCB generator pastes colonies onto empty dishes. Poisson cloning is kept as an option; a test caught that a cloning margin under about 6 pixels makes OpenCV erase the defect's edge.
+**Copy-paste** (`gen/copypaste.py`) moves a real defect's pixels with exactly the transform used for its mask. It then fades them in with a Gaussian edge that follows the defect's outline down to zero.
+
+RGCB's own paste, a square patch faded with sigma 0.8, is kept as `blend: radial`. On textured metal it left straight seams along long scratches, because its fade is still 0.2 to 0.46 at the patch border. Poisson cloning is also kept; a test caught that a cloning margin under about 6 pixels makes OpenCV erase the defect's edge.
 
 **RGCB** (`gen/rgcb.py`, `gen/nst_hrnet.py`) is that copy-paste plus the RGCB pipeline's style step (Pawłowski et al., *Scientific Reports* 2022). A small high-resolution network (Li et al. 2019) is trained to restyle the whole composite toward a real good part:
 - **Losses:** content on VGG relu4_2, style on relu1_1 to relu5_1, weighted 150 to 0.5.

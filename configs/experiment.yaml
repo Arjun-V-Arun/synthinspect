@@ -9,13 +9,18 @@ runs_dir: runs                # everything the pipeline writes goes here (git-ig
 # screw (tiny defects on a thin rotated part).
 categories:
   bottle:
-    placement: {rotate: free, flip: true, foreground: auto}
+    # Top view of a round bottle mouth: keep each defect's distance from the centre, any angle around it.
+    placement: {mode: aligned, orbit: any, jitter: 0.0, foreground: auto}
     yolo_aug: {flipud: 0.5, degrees: 0.0}
   metal_nut:
-    placement: {rotate: free, flip: false, foreground: auto}   # a flipped nut IS a defect type here
-    yolo_aug: {flipud: 0.0, fliplr: 0.0, degrees: 0.0}
+    # Fixed pose: a defect stays where it was on its own nut (free placement pasted lobes at wrong angles);
+    # registration lines the two nuts up exactly (without it, long scratches left double lobe edges).
+    placement: {mode: aligned, orbit: none, register: true, jitter: 0.0, foreground: auto}
+    skip_synthesis: [flip]    # whole nut upside down: not something you can paint into a region (real ones still train)
+    yolo_aug: {flipud: 0.0, fliplr: 0.0, degrees: 0.0}   # a mirrored nut IS a defect type here
   screw:
-    placement: {rotate: free, flip: true, foreground: auto}
+    # Random orientation: carry each defect along the screw's own axis (head stays on head, thread on thread).
+    placement: {mode: axis, register: true, jitter: 0.0, foreground: auto}
     yolo_aug: {flipud: 0.5, degrees: 0.0}
 
 split:

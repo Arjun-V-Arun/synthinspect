@@ -125,7 +125,7 @@ def test_rgcb_hrnet_saves_state_in_its_workdir(split, bank, tmp_path):
     host = read_rgb(split.normal_train[1].image)
     rng = np.random.default_rng(5)
     img, label, info = gen.paint(host, bank.sample(host, "stain", rng), bank, rng)
-    assert info["nst"] == "hrnet" and info["blend"] == "radial" and info["scope"] == "global"
+    assert info["nst"] == "hrnet" and info["blend"] == "alpha" and info["scope"] == "global"
     assert (tmp_path / "model" / "nst_hrnet.pt").exists()
 
 

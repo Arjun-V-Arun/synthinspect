@@ -4,8 +4,10 @@ This mirrors the colony generator used at RGCB (Pawłowski, Majchrowska and
 Golan, Scientific Reports 2022; github.com/jarek-pawlowski/microbial-dataset-generation):
 
 1. Cut real objects (there: colonies; here: the few training defects) and paste
-   them onto clean backgrounds (there: empty dishes; here: good parts), each
-   patch faded in with a Gaussian alpha (sigma 0.8).
+   them onto clean backgrounds (there: empty dishes; here: good parts) with a
+   Gaussian fade. RGCB faded a square patch (sigma 0.8, ``blend: radial``);
+   here the fade follows the defect's outline (``blend: alpha``), because the
+   square patch's edge showed as straight seams on textured metal.
 2. Restyle the WHOLE composite toward a real clean image with photorealistic
    HRNet style transfer (Li et al. 2019), 500 steps per image, warm-started
    from the network trained on the previous image.
@@ -37,7 +39,9 @@ class RGCBGenerator:
         scope: str = "global",
         style_source: str = "normal",
         local_margin: int = 24,
-        blend: str = "radial",
+        blend: str = "alpha",
+        feather: int = 12,
+        context: int = 6,
         radial_sigma: float = 0.8,
         radial_pad: float = 0.25,
         nst_method: str = "hrnet",
@@ -51,7 +55,7 @@ class RGCBGenerator:
         if nst_method not in ("hrnet", "gatys"):
             raise ValueError("nst_method must be 'hrnet' or 'gatys'")
         self.scope, self.style_source, self.local_margin = scope, style_source, local_margin
-        self.cp = CopyPasteGenerator(blend=blend, radial_sigma=radial_sigma, radial_pad=radial_pad)
+        self.cp = CopyPasteGenerator(blend=blend, feather=feather, context=context, radial_sigma=radial_sigma, radial_pad=radial_pad)
         self.nst_method = nst_method
         self.nst_cfg = dict(nst or {})
         self.pretrained_vgg = pretrained_vgg

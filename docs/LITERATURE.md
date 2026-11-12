@@ -92,7 +92,8 @@ It also places masks on the part with keypoint matching (CAMA), which keeps defe
 | Both methods use **Stable Diffusion 1.5 inpainting** (`sd-legacy/stable-diffusion-inpainting`) instead of SD 2 inpainting | The official `stabilityai` SD 2 repos started returning 404 in November 2025. The `sd-legacy` mirror of SD 1.5 inpainting is the documented replacement for the deprecated RunwayML repo. SD 1.5's smaller text encoder also helps fit 8 GB. Using one backbone for both keeps the comparison fair. |
 | MAGIC uses **LoRA** instead of full DreamBooth | Full DreamBooth of the UNet does not fit 8 GB. Rank and step count are raised to compensate; this is recorded as a deviation. |
 | **One shared mask bank** for every generator, built only from training defects | Removes DefectFill's test-mask leak and makes the generators differ only in how they paint, not where. |
-| MAGIC's CAMA is replaced by **foreground-constrained placement** | CAMA needs GeoAware-SC, which ships without a licence. The replacement keeps MAGIC's own alignment score (fraction of the mask on the part) as the acceptance rule. |
+| MAGIC's CAMA is replaced by **part-aware placement with registration** | CAMA needs GeoAware-SC, which ships without a licence. The replacement keeps each defect at the same place on the part (aligned by centre, main axis and ECC image registration) and keeps MAGIC's own alignment score as the acceptance rule. |
+| The RGCB paste fades along the defect's outline instead of a square patch | RGCB's square Gaussian patch (sigma 0.8) is still 0.2 to 0.46 opaque at its border; on textured metal that showed as straight seams along long scratches. The original is kept as `blend: radial`. |
 
 Each of these is a reason the numbers here will not match the papers. The point of the project is a controlled comparison under one protocol, not a reproduction of their tables.
 

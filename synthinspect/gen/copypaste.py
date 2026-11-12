@@ -5,11 +5,14 @@ without style transfer). The defect's pixels move with exactly the same affine
 transform as its mask, so the label stays correct by construction.
 
 Blends:
-  radial  : a square patch around the defect, faded with a Gaussian alpha
-            exp(-(x^2 + y^2) / (2 sigma^2)) over [-1, 1]^2, sigma 0.8. This is how the
-            RGCB generator pastes colony patches onto empty dishes (lib.gaussian_alpha).
+  alpha   : (default) the defect plus a small margin, fully opaque, fading to zero
+            along the defect's own outline with a Gaussian edge ("feather" pixels).
+  radial  : RGCB's exact paste: a square patch faded with exp(-(x^2 + y^2) / (2 sigma^2))
+            over [-1, 1]^2, sigma 0.8 (lib.gaussian_alpha in the RGCB generator). At the
+            patch border the fade is still 0.2 to 0.46, then stops: invisible on plain agar,
+            but on textured metal with a long scratch it left straight seams in the first
+            real metal_nut batch, so it is no longer the default.
   poisson : OpenCV seamless cloning of the region around the defect.
-  alpha   : feathered mask.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ from ..data.mvtec import Split
 class CopyPasteGenerator:
     name = "copypaste"
 
-    def __init__(self, blend: str = "radial", feather: int = 5, context: int = 8, radial_sigma: float = 0.8, radial_pad: float = 0.25):
+    def __init__(self, blend: str = "alpha", feather: int = 12, context: int = 6, radial_sigma: float = 0.8, radial_pad: float = 0.25):
         if blend not in ("radial", "poisson", "alpha"):
             raise ValueError("blend must be 'radial', 'poisson' or 'alpha'")
         self.blend = blend

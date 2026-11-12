@@ -96,11 +96,31 @@ def mask_bank(cfg: dict, cat: str, sp: Split) -> MaskBank:
     return MaskBank(sp.defect_train, PlacementPolicy(**pl))
 
 
+def synthesis_split(cfg: dict, cat: str, sp: Split) -> Split:
+    """The split generators see: defect types listed under ``skip_synthesis`` are removed.
+
+    Whole-part defects (metal_nut "flip": the entire nut upside down) cannot be made
+    by painting into a region of a good part; copy-paste stacked one nut on another.
+    Every generator skips them, so the comparison stays fair, and the detectors still
+    train on the real examples (datasets are built from the full split).
+    """
+    skip = set(cfg["categories"][cat].get("skip_synthesis", []))
+    unknown = skip - set(sp.defect_types)
+    if unknown:
+        raise ValueError(f"skip_synthesis lists types not in {cat}: {sorted(unknown)}")
+    if not skip:
+        return sp
+    out = Split.from_dict(sp.to_dict())
+    out.defect_types = [t for t in sp.defect_types if t not in skip]
+    out.defect_train = [s for s in sp.defect_train if s.defect_type not in skip]
+    return out
+
+
 def generate(cfg: dict, cat: str, method: str, n_per_type: int | None = None) -> Path:
     from .gen import build_generator
     from .gen.base import generate as run_generation
 
-    sp = load_split(cfg, cat)
+    sp = synthesis_split(cfg, cat, load_split(cfg, cat))
     bank = mask_bank(cfg, cat, sp)
     gcfg = copy.deepcopy(cfg["generators"].get(method, {}))
     gen = build_generator(method, gcfg, cat)
