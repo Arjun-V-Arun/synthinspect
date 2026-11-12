@@ -1,0 +1,16 @@
+# data and experiment outputs (MVTec is non-commercial: do not commit the dataset)
+data/
+runs/
+*.pt
+*.pth
+*.onnx
+!web/assets/model.onnx
+*.engine
+__pycache__/
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+web/node_modules/
+web/package-lock.json
+yolo26n.pt

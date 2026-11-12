@@ -1,0 +1,20 @@
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+SynthInspect
+Copyright (C) 2026 Arjun V. Arun
+
+This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU Affero General Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+General Public License for more details: <https://www.gnu.org/licenses/agpl-3.0.html>
+
+Why AGPL: the detector is built on Ultralytics YOLO26, which is AGPL-3.0.
+
+Third-party terms that also apply:
+- MVTec AD images, and anything derived from them (synthetic images, trained weights, demo assets):
+  CC BY-NC-SA 4.0, non-commercial use only.
+- Stable Diffusion 1.5 inpainting weights: CreativeML OpenRAIL-M.
+- RF-DETR Nano: Apache 2.0.

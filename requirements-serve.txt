@@ -1,0 +1,10 @@
+# Everything the inspection API needs at runtime. No PyTorch: the service runs the
+# exported OpenVINO INT8 model (or the ONNX model), so the image stays small.
+numpy>=1.26
+opencv-python-headless>=4.9
+pyyaml>=6
+openvino>=2025.3
+onnxruntime>=1.20
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9

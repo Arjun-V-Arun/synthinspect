@@ -1,0 +1,6 @@
+# Cloud Build (gcloud run deploy --source) uploads only what the Dockerfile needs.
+*
+!Dockerfile
+!requirements-serve.txt
+!synthinspect/**
+!runs/*/package/**

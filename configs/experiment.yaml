@@ -1,0 +1,70 @@
+# SynthInspect experiment configuration.
+# Paths are relative to the repository root unless absolute.
+
+mvtec_root: data/mvtec_ad     # the extracted MVTec AD folder (contains bottle/, metal_nut/, screw/, ...)
+runs_dir: runs                # everything the pipeline writes goes here (git-ignored)
+
+# Three categories with different difficulty: bottle (large defects, fixed view),
+# metal_nut (stamped metal part, rotated, includes a whole-part "flip" defect),
+# screw (tiny defects on a thin rotated part).
+categories:
+  bottle:
+    placement: {rotate: free, flip: true, foreground: auto}
+    yolo_aug: {flipud: 0.5, degrees: 0.0}
+  metal_nut:
+    placement: {rotate: free, flip: false, foreground: auto}   # a flipped nut IS a defect type here
+    yolo_aug: {flipud: 0.0, fliplr: 0.0, degrees: 0.0}
+  screw:
+    placement: {rotate: free, flip: true, foreground: auto}
+    yolo_aug: {flipud: 0.5, degrees: 0.0}
+
+split:
+  train_fraction_den: 3       # first floor(n/3) images of each defect type are the "few shots"
+
+generation:
+  n_per_type: 100             # synthetic images per defect type per method (MAGIC used 500; raise it if you have GPU time)
+  seed: 0
+  methods: [copypaste, rgcb, defectfill, magic]
+
+dataset:
+  class_mode: binary          # one "defect" class; pass/fail is the business decision
+  n_normals: null             # null = use every train/good image as a negative
+
+detectors:
+  yolo26n_pre:     {family: yolo, model: yolo26n, pretrained: true,  epochs: 100, imgsz: 640, batch: 16, workers: 2}
+  yolo26n_scratch: {family: yolo, model: yolo26n, pretrained: false, epochs: 100, imgsz: 640, batch: 16, workers: 2}
+  rfdetr_nano:     {family: rfdetr, size: nano, pretrained: true, epochs: 50, batch: 4, grad_accum: 4, workers: 2}
+
+# Conditions: "real" (few real defects only) or the name of a generator (real + synthetic).
+suites:
+  core:                       # the generator comparison
+    conditions: [real, copypaste, rgcb, defectfill, magic]
+    detectors: [yolo26n_pre]
+    seeds: [0, 1, 2]
+  models:                     # pretrained vs scratch vs transformer, on real-only and the best generator
+    conditions: [real, best]  # "best" = highest mean image AP in the core suite, per category
+    detectors: [yolo26n_pre, yolo26n_scratch, rfdetr_nano]
+    seeds: [0]
+
+evaluation:
+  n_boot: 1000
+  box_min_area: 9
+  box_merge_frac: 0.01        # fragments closer than 1% of the image size count as one defect
+
+review:
+  max_escape: 0.0             # no defective part may be auto-passed on the calibration half
+  max_false_reject: 0.02      # at most 2% of good parts auto-rejected on the calibration half
+  repeats: 20
+
+xai:
+  odam_top_k: 1
+  pointing_tolerance: 15
+  drise: {n_masks: 1000, grid: 16, p: 0.5, batch: 16}
+  drise_images: 20            # D-RISE is slow, so FP32-vs-INT8 agreement uses a subset
+  faithfulness_images: 20
+
+export:
+  calibration_limit: 300
+  bench_runs: 200
+  bench_warmup: 20
+  int8_max_ap_drop: 0.02      # release gate: INT8 may lose at most 0.02 image AP vs FP32

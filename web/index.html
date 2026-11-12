@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SynthInspect Demo</title>
+<meta name="description" content="Few-shot defect inspection that runs in your browser: a YOLO26 model trained with synthetic defects, a pass / review / reject band, and explanations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3efe6; --card: #fbf9f4; --ink: #1c1b19; --muted: #6b665d; --line: #d9d2c3;
+    --amber: #d9902a; --pass: #2e7a4d; --review: #b7791f; --reject: #b2281f; --focus: #1f5fa8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #171614; --card: #201f1c; --ink: #ece7dc; --muted: #a39d91; --line: #3a372f;
+      --amber: #e6a443; --pass: #4fb07a; --review: #e0a53d; --reject: #e0584c; --focus: #7fb0ea;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #171614; --card: #201f1c; --ink: #ece7dc; --muted: #a39d91; --line: #3a372f;
+    --amber: #e6a443; --pass: #4fb07a; --review: #e0a53d; --reject: #e0584c; --focus: #7fb0ea;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 "IBM Plex Sans", system-ui, sans-serif; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  header { padding: 20px 16px 12px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  header p { margin: 4px 0 10px; color: var(--muted); max-width: 70ch; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font: 12px "IBM Plex Mono", monospace; padding: 2px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--card); }
+  main { display: grid; grid-template-columns: 220px minmax(0, 1fr) 320px; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  section, aside { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
+  h2 { font: 600 12px "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; }
+  .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (max-width: 1100px) { .gallery { grid-template-columns: repeat(4, 1fr); } }
+  .thumb { position: relative; border: 2px solid transparent; border-radius: 4px; padding: 0; background: none; cursor: pointer; }
+  .thumb img { width: 100%; display: block; border-radius: 2px; aspect-ratio: 1; object-fit: cover; }
+  .thumb span { position: absolute; left: 4px; bottom: 4px; font: 10px "IBM Plex Mono", monospace; background: rgba(0,0,0,.65); color: #fff; padding: 1px 4px; border-radius: 2px; }
+  .thumb[aria-pressed="true"] { border-color: var(--amber); }
+  .thumb:focus-visible, button:focus-visible, label.upload:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+  label.upload { display: block; margin-top: 10px; text-align: center; padding: 8px; border: 1px dashed var(--line); border-radius: 4px; cursor: pointer; color: var(--muted); font-size: 13px; }
+  label.upload input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .stage { position: relative; background: #0d0d0c; border-radius: 4px; display: flex; justify-content: center; align-items: center; min-height: 240px; }
+  canvas#view { max-width: 100%; height: auto; display: block; }
+  .stamp { position: absolute; top: 14px; right: 14px; font: 600 22px "IBM Plex Mono", monospace; letter-spacing: 0.12em; padding: 4px 14px; border: 3px solid currentColor; border-radius: 4px; transform: rotate(-4deg); background: rgba(255,255,255,.88); }
+  .stamp.pass { color: var(--pass); } .stamp.review { color: var(--review); } .stamp.reject { color: var(--reject); }
+  .stamp[hidden] { display: none; }
+  .scorebar { margin-top: 14px; }
+  .track { position: relative; height: 18px; border-radius: 3px; overflow: hidden; display: flex; border: 1px solid var(--line); }
+  .zone { height: 100%; }
+  .zone.pass { background: color-mix(in srgb, var(--pass) 28%, transparent); }
+  .zone.review { background: color-mix(in srgb, var(--review) 28%, transparent); }
+  .zone.reject { background: color-mix(in srgb, var(--reject) 28%, transparent); }
+  .marker { position: absolute; top: -3px; width: 3px; height: 24px; background: var(--ink); transition: left .25s; }
+  .scale { display: flex; justify-content: space-between; font: 11px "IBM Plex Mono", monospace; color: var(--muted); margin-top: 3px; }
+  .readout { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font: 13px "IBM Plex Mono", monospace; }
+  .readout b { font-weight: 600; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  button { font: 500 13px "IBM Plex Sans", sans-serif; padding: 7px 12px; border-radius: 4px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  button:disabled { opacity: .5; cursor: default; }
+  progress { width: 100%; height: 6px; accent-color: var(--amber); }
+  .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+  dt { color: var(--muted); } dd { margin: 0; font-family: "IBM Plex Mono", monospace; }
+  .status { font: 12px "IBM Plex Mono", monospace; color: var(--muted); margin-top: 8px; min-height: 1.5em; }
+  footer { padding: 16px; color: var(--muted); font-size: 12px; text-align: center; }
+  footer a, section a { color: inherit; }
+  .stack > * + * { margin-top: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SynthInspect</h1>
+  <p>Few-shot defect inspection. The detector was trained on a handful of real defects plus synthetic ones, and it runs here, in your browser, with no server.</p>
+  <div class="tags" id="tags"><span class="tag">loading model…</span></div>
+</header>
+<main>
+  <aside aria-label="Parts">
+    <h2>Parts</h2>
+    <div class="gallery" id="gallery"></div>
+    <label class="upload">Upload your own image<input type="file" id="upload" accept="image/*"></label>
+  </aside>
+
+  <section aria-label="Inspection">
+    <h2>Inspection</h2>
+    <div class="stage">
+      <canvas id="view" width="640" height="640" role="img" aria-label="Part under inspection with detected defects outlined"></canvas>
+      <div class="stamp" id="stamp" hidden></div>
+    </div>
+    <div class="scorebar" aria-label="Defect score against the review band">
+      <div class="track" id="track">
+        <div class="zone pass" id="zpass"></div><div class="zone review" id="zreview"></div><div class="zone reject" id="zreject"></div>
+        <div class="marker" id="marker" style="left:0"></div>
+      </div>
+      <div class="scale"><span>0 · auto-pass</span><span>review by a person</span><span>auto-reject · 1</span></div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="status" id="status" aria-live="polite"></div>
+  </section>
+
+  <div class="stack">
+    <section aria-label="Explanation">
+      <h2>Why This Decision</h2>
+      <div class="tabs">
+        <button id="showSaved" disabled>Saved explanation</button>
+        <button id="explainLive" class="primary" disabled>Explain live</button>
+        <button id="clearExp" disabled>Clear</button>
+      </div>
+      <progress id="prog" value="0" max="1" hidden></progress>
+      <p class="note" id="expNote">Saved explanations are ODAM maps (one backward pass through the PyTorch model). Live explanations run D-RISE on this browser's model: the part is hidden in random patches many times, and the heatmap shows which visible patches kept the detection alive.</p>
+    </section>
+    <section aria-label="Model">
+      <h2>How Good Is It</h2>
+      <dl id="metrics"></dl>
+      <p class="note">Automation, escapes and false rejects are cross-fitted: thresholds chosen on one half of the test parts, measured on the other half.</p>
+    </section>
+  </div>
+</main>
+<footer>
+  Images and training data: <a href="https://www.mvtec.com/company/research/datasets/mvtec-ad">MVTec AD</a>, CC BY-NC-SA 4.0, non-commercial use only. Model: Ultralytics YOLO26 (AGPL-3.0). Code: AGPL-3.0.
+</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>

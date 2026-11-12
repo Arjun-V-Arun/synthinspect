@@ -1,0 +1,9 @@
+{
+  "name": "synthinspect-web",
+  "private": true,
+  "type": "module",
+  "description": "Static browser demo. The page loads onnxruntime-web from a CDN; this dev dependency only lets tests/test_web.py run inspect.js under Node with the same WASM runtime.",
+  "devDependencies": {
+    "onnxruntime-web": "1.31.1"
+  }
+}

@@ -1,0 +1,4 @@
+*
+!requirements-serve.txt
+!synthinspect/
+!runs/*/package/

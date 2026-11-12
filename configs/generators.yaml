@@ -1,0 +1,44 @@
+# Generator settings. Change these, not the code.
+
+copypaste:
+  blend: poisson              # poisson (seamless clone) or alpha (feathered)
+  feather: 5
+  context: 8
+
+rgcb:
+  # Set these to match what was actually done at RGCB.
+  scope: global               # global = restyle the whole composite; local = only around the defect
+  style_source: normal        # style image: a good part (normal) or another training defect (defect)
+  blend: poisson
+  nst: {size: 640, steps: 150, lr: 0.02, content_weight: 1.0, style_weight: 10000.0, tv_weight: 0.001}
+
+# Both diffusion methods share one backbone so they differ only where the papers differ.
+# The official stabilityai SD 2 repos return 404 since Nov 2025, so this uses the maintained
+# SD 1.5 inpainting mirror. Any diffusers-format 9-channel inpainting model works here.
+defectfill:
+  base_model: sd-legacy/stable-diffusion-inpainting
+  sample_steps: 30
+  guidance: 7.5
+  lfs_candidates: 4           # the paper uses 8; 4 halves generation time
+  train:
+    steps: 1500               # not stated in the paper
+    rank: 8                   # paper
+    lr_unet: 2.0e-4           # paper
+    lr_text: 4.0e-5           # paper
+    lambda_def: 0.5           # paper
+    lambda_obj: 0.2           # paper
+    lambda_attn: 0.05         # paper
+    obj_background_weight: 0.3  # paper says only "alpha < 1"
+    grad_accum: 1
+
+magic:
+  base_model: sd-legacy/stable-diffusion-inpainting
+  sample_steps: 30
+  w_d: 7.5                    # paper: guidance outside the defect
+  w_m: 4.0                    # paper: minimum guidance inside the defect
+  train:
+    steps: 2000               # paper: 5000 full-DreamBooth steps at batch 4; LoRA here
+    rank: 16                  # deviation: LoRA instead of full fine-tuning (8 GB GPU)
+    lr_unet: 1.0e-4
+    gpp_sigma: 1.0            # paper
+    grad_accum: 4             # effective batch 4, as in the paper
