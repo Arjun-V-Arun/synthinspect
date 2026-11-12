@@ -1,6 +1,6 @@
 # data and experiment outputs (MVTec is non-commercial: do not commit the dataset)
-data/
-runs/
+/data/*
+/runs/
 *.pt
 *.pth
 *.onnx
@@ -14,3 +14,4 @@ venv/
 web/node_modules/
 web/package-lock.json
 yolo26n.pt
+!/data/README.md
