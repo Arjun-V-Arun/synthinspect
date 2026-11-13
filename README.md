@@ -57,7 +57,7 @@ python -m synthinspect evaluate --suite core --category metal_nut
 python -m synthinspect report
 ```
 
-Every stage resumes where it stopped. All settings live in `configs/experiment.yaml` and `configs/generators.yaml`.
+Every stage resumes where it stopped. A training run counts as finished only once it writes `done.json`; an interrupted YOLO run continues from its last saved epoch, so a half-trained checkpoint is never evaluated. All settings live in `configs/experiment.yaml` and `configs/generators.yaml`.
 
 ## Tests
 

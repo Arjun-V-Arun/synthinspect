@@ -24,13 +24,18 @@ rgcb:
   nst_method: hrnet           # "gatys" switches to pixel-optimisation NST for comparison
   nst:
     size: 640                 # long side during style transfer; the detector trains at 640
-    steps: 500                # RGCB value
+    steps: 500                # RGCB value; used for the first (cold) image of each category
+    warm_steps: 100           # not RGCB: once warm-started, the output changed by 0.84 grey levels on average
+                              # between step 100 and step 500, no more than between 200 and 500 (0.90),
+                              # measured on 5 metal_nut images; null runs every image for `steps`
     lr: 0.005                 # RGCB value
     lr_step: 200              # RGCB value
     lr_gamma: 0.9             # RGCB value
     content_weight: 150.0     # RGCB value
     style_weight: 0.5         # RGCB value
     warm_start: true          # RGCB: each image starts from the previous image's network
+    amp: true                 # not RGCB: bf16 convolutions for speed; losses and the output stay float32
+                              # (false gives the exact RGCB arithmetic; scripts/compare_gen.py compares the two)
 
 # Both diffusion methods share one backbone so they differ only where the papers differ.
 # The official stabilityai SD 2 repos return 404 since Nov 2025, so this uses the maintained

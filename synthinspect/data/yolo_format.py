@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Iterable
 
 import numpy as np
 import yaml
@@ -47,8 +48,14 @@ def write_condition(
     min_area: int = 9,
     merge_frac: float = 0.01,
     seed: int = 0,
+    skip_types: Iterable[str] = (),
 ) -> Path:
-    """Build the dataset folder and return the path of its data.yaml."""
+    """Build the dataset folder and return the path of its data.yaml.
+
+    Generated images of the ``skip_types`` defect types are left out (they may exist
+    from before the type was listed under ``skip_synthesis``); real ones stay in.
+    """
+    skip_types = set(skip_types)
     out = Path(out_dir)
     if out.exists():
         shutil.rmtree(out)
@@ -61,7 +68,7 @@ def write_condition(
     for d in (tr_i, tr_l, va_i, va_l):
         d.mkdir(parents=True)
 
-    counts = {"real_defect": 0, "normal": 0, "synthetic": 0}
+    counts = {"real_defect": 0, "normal": 0, "synthetic": 0, "synthetic_skipped": 0}
     if include_real:
         for i, s in enumerate(split.defect_train):
             lines = yolo_lines(read_mask(s.mask), cls_of(s.defect_type), min_area, merge_frac)
@@ -85,6 +92,9 @@ def write_condition(
         for r in sorted(rows, key=lambda r: r["file"]):
             t = r["defect_type"]
             if t not in split.defect_types:
+                continue
+            if t in skip_types:
+                counts["synthetic_skipped"] += 1
                 continue
             if n_generated_per_type is not None and per_type.get(t, 0) >= n_generated_per_type:
                 continue

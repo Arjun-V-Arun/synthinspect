@@ -95,11 +95,18 @@ class RGCBGenerator:
     def paint(self, host: np.ndarray, placed: PlacedMask, bank: MaskBank, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, dict]:
         composite, label, info = self.cp.paint(host, placed, bank, rng)
         style_path = self._styles[int(rng.integers(len(self._styles)))]
-        styled = self.nst(composite, self._style(style_path))
+        nst_info = {}
+        if self.nst_method == "hrnet":
+            # Drawn after the style pick, so the composite and style match runs made before this seed existed.
+            seed = int(rng.integers(2**31 - 1))
+            styled = self.nst(composite, self._style(style_path), seed=seed)
+            nst_info = {"nst_trace": self.nst.last_trace}
+        else:
+            styled = self.nst(composite, self._style(style_path))
         if self.scope == "local":
             k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * self.local_margin + 1, 2 * self.local_margin + 1))
             region = cv2.dilate(label.astype(np.uint8), k) > 0
             a = feather_alpha(region, self.local_margin // 2)[..., None]
             styled = (a * styled + (1 - a) * composite).round().clip(0, 255).astype(np.uint8)
-        info = {**info, "style": style_path, "scope": self.scope, "nst": self.nst_method}
+        info = {**info, "style": style_path, "scope": self.scope, "nst": self.nst_method, **nst_info}
         return styled, label, info

@@ -34,14 +34,23 @@ def generate(
     seed: int = 0,
     foreground_mode: str = "auto",
     resume: bool = True,
+    progress_every: float | None = 60.0,
 ) -> list[dict]:
-    """Write ``n_per_type`` images per defect type to ``out_dir``; resumable."""
+    """Write ``n_per_type`` images per defect type to ``out_dir``; resumable.
+
+    Prints a progress line (count, seconds per image, time left) at most every
+    ``progress_every`` seconds, so a long run shows it is alive; None turns it off.
+    """
     out_dir = Path(out_dir)
     meta_path = out_dir / "meta.jsonl"
     done = {r["file"] for r in read_jsonl(meta_path)} if resume else set()
     hosts = [s.image for s in split.normal_train]
     fg_cache: dict[str, np.ndarray] = {}
     rows: list[dict] = []
+    todo = sum(
+        1 for d in split.defect_types if d in bank.by_type for i in range(n_per_type) if f"{d}_{i:05d}.png" not in done
+    )
+    t_start = t_last = time.perf_counter()
     for dtype in split.defect_types:
         if dtype not in bank.by_type:
             continue
@@ -75,4 +84,18 @@ def generate(
             }
             append_jsonl(meta_path, [row])
             rows.append(row)
+            now = time.perf_counter()
+            if progress_every is not None and len(rows) < todo and now - t_last >= progress_every:
+                rate = (now - t_start) / len(rows)
+                print(
+                    f"[{time.strftime('%H:%M:%S')}] {gen.name}: {len(rows)}/{todo} images, "
+                    f"{rate:.1f} s/image, about {_duration(rate * (todo - len(rows)))} left",
+                    flush=True,
+                )
+                t_last = now
     return rows
+
+
+def _duration(seconds: float) -> str:
+    minutes = max(1, round(seconds / 60))
+    return f"{minutes // 60} h {minutes % 60} min" if minutes >= 60 else f"{minutes} min"

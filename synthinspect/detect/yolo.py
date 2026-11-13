@@ -32,15 +32,24 @@ def train_yolo(
     device: str | None = None,
     aug: dict | None = None,
     extra: dict | None = None,
+    resume: bool = False,
 ) -> Path:
     """Train for a fixed number of epochs and return the LAST checkpoint (no selection on any validation set).
 
     ``pretrained=False`` builds the network from its YAML with random weights (from scratch).
+    ``resume=True`` continues an interrupted run from ``out_dir/weights/last.pt`` with the
+    settings saved in it.
     """
     from ultralytics import YOLO
 
     _quiet_ultralytics()
     out_dir = Path(out_dir)
+    last = out_dir / "weights" / "last.pt"
+    if resume:
+        YOLO(str(last)).train(resume=True)
+        if not yolo_checkpoint_finished(last):
+            raise RuntimeError(f"Resumed training stopped early: {last} is not a finished checkpoint")
+        return last
     weights = f"{model}.pt" if pretrained else f"{model}.yaml"
     net = YOLO(weights)
     args = dict(
@@ -64,10 +73,17 @@ def train_yolo(
     args.update(aug or {})
     args.update(extra or {})
     net.train(**args)
-    last = out_dir / "weights" / "last.pt"
     if not last.exists():
         raise FileNotFoundError(f"Training finished but {last} is missing")
     return last
+
+
+def yolo_checkpoint_finished(path: str | Path) -> bool:
+    """Ultralytics marks a checkpoint from a completed run with epoch -1 (and drops its optimizer)."""
+    import torch
+
+    ckpt = torch.load(str(path), map_location="cpu", weights_only=False)
+    return ckpt.get("epoch", -1) == -1
 
 
 class TorchYOLO:

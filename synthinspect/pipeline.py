@@ -158,6 +158,7 @@ def build_datasets(cfg: dict, cat: str, conditions: Iterable[str]) -> dict[str, 
             class_mode=ds["class_mode"],
             min_area=ev["box_min_area"],
             merge_frac=ev["box_merge_frac"],
+            skip_types=cfg["categories"][cat].get("skip_synthesis", []),
         )
         _log(f"{cat}: dataset {cond} -> {yaml.safe_load((target.parent / 'counts.yaml').read_text())}")
     return out
@@ -196,36 +197,59 @@ def best_generator(cfg: dict, cat: str, metric: str = "image_ap") -> str:
     return max(scores, key=scores.get)
 
 
+DONE = "done.json"  # written only when a training run has finished all its epochs
+
+
 def train_one(cfg: dict, cat: str, cond: str, det_name: str, seed: int, device: str | None = None) -> Path:
+    """Train one run, or return its weights if it already finished.
+
+    Ultralytics saves ``last.pt`` after every epoch, so a checkpoint on disk does not
+    mean the run finished. A run counts as finished only once ``done.json`` exists;
+    an interrupted YOLO run resumes from its last epoch, an interrupted RF-DETR run
+    starts again.
+    """
     d = cfg["detectors"][det_name]
     rd = run_dir(cfg, cat, cond, det_name, seed)
+    if (rd / DONE).exists() and (w := weights_of(cfg, cat, cond, det_name, seed)) is not None:
+        return w
     data = build_datasets(cfg, cat, [cond])[cond]
+    t0 = time.perf_counter()
+    resumed = False
     if d["family"] == "yolo":
-        last = rd / "weights" / "last.pt"
-        if last.exists():
-            return last
-        from .detect.yolo import train_yolo
+        from .detect.yolo import train_yolo, yolo_checkpoint_finished
 
-        aug = cfg["categories"][cat].get("yolo_aug", {})
-        return train_yolo(
-            data, rd, model=d["model"], pretrained=d["pretrained"], epochs=d["epochs"], imgsz=d["imgsz"],
-            batch=d["batch"], seed=seed, workers=d.get("workers", 2), device=device, aug=aug,
-        )
-    if d["family"] == "rfdetr":
-        for name in ("last_ema.pth", "last.pth"):
-            if (rd / name).exists():
-                return rd / name
+        partial = rd / "weights" / "last.pt"
+        if partial.exists() and yolo_checkpoint_finished(partial):
+            w = partial  # finished, but stopped before the marker was written
+        else:
+            resumed = partial.exists()
+            if resumed:
+                _log(f"resuming {cat}/{cond}/{det_name}/s{seed} from its last saved epoch")
+            aug = cfg["categories"][cat].get("yolo_aug", {})
+            w = train_yolo(
+                data, rd, model=d["model"], pretrained=d["pretrained"], epochs=d["epochs"], imgsz=d["imgsz"],
+                batch=d["batch"], seed=seed, workers=d.get("workers", 2), device=device, aug=aug, resume=resumed,
+            )
+    elif d["family"] == "rfdetr":
         from .detect.rfdetr_wrap import train_rfdetr
 
-        return train_rfdetr(
+        w = train_rfdetr(
             data.parent, rd, size=d["size"], pretrained=d["pretrained"], epochs=d["epochs"], batch=d["batch"],
             grad_accum=d.get("grad_accum", 1), seed=seed, workers=d.get("workers", 2), device=device,
         )
-    raise ValueError(d["family"])
+    else:
+        raise ValueError(d["family"])
+    minutes = (time.perf_counter() - t0) / 60
+    write_json(rd / DONE, {"weights": Path(w).name, "minutes": round(minutes, 1), "resumed": resumed, "finished": time.strftime("%Y-%m-%d %H:%M:%S")})
+    _log(f"done {cat}/{cond}/{det_name}/s{seed} in {minutes:.0f} min")
+    return Path(w)
 
 
 def weights_of(cfg: dict, cat: str, cond: str, det_name: str, seed: int) -> Path | None:
+    """The final weights of a FINISHED run; None while it is unfinished or absent."""
     rd = run_dir(cfg, cat, cond, det_name, seed)
+    if not (rd / DONE).exists():
+        return None
     for p in (rd / "weights" / "last.pt", rd / "last_ema.pth", rd / "last.pth"):
         if p.exists():
             return p
@@ -249,8 +273,10 @@ def suite_runs(cfg: dict, suite: str, categories=None, conditions=None, detector
 
 
 def train(cfg: dict, suite: str, device: str | None = None, **filters) -> None:
-    for cat, cond, det, seed in suite_runs(cfg, suite, **filters):
-        _log(f"train {cat}/{cond}/{det}/s{seed}")
+    todo = list(suite_runs(cfg, suite, **filters))
+    for i, (cat, cond, det, seed) in enumerate(todo, 1):
+        state = "finished, skipping" if (run_dir(cfg, cat, cond, det, seed) / DONE).exists() else "training"
+        _log(f"run {i}/{len(todo)}: {cat}/{cond}/{det}/s{seed} ({state})")
         train_one(cfg, cat, cond, det, seed, device)
 
 

@@ -188,3 +188,21 @@ def test_registration_lines_up_a_slightly_rotated_part(tmp_path):
     rough = err(PlacementPolicy(mode="aligned", jitter=0.0, min_alignment=0.0))
     fine = err(PlacementPolicy(mode="aligned", jitter=0.0, register=True, min_alignment=0.0))
     assert fine < 1.5 and fine < rough / 2, (fine, rough)
+
+
+def test_dataset_leaves_out_generated_images_of_skipped_types(split, tmp_path):
+    """Images generated before a type was listed under skip_synthesis must not reach training."""
+    import yaml
+
+    from synthinspect.data.yolo_format import write_condition
+    from synthinspect.gen.base import generate
+    from synthinspect.gen.copypaste import CopyPasteGenerator
+
+    generate(CopyPasteGenerator(), split, MaskBank(split.defect_train), tmp_path / "cp", n_per_type=3, seed=0, progress_every=None)
+    out = tmp_path / "ds"
+    write_condition(split, out, [tmp_path / "cp"], n_generated_per_type=3, skip_types=["stain"])
+    counts = yaml.safe_load((out / "counts.yaml").read_text())
+    assert counts["synthetic"] == 3 and counts["synthetic_skipped"] == 3
+    names = [p.name for p in (out / "train" / "images").iterdir()]
+    assert not any(n.startswith("syn_") and "stain" in n for n in names)
+    assert any(n.startswith("real_stain") for n in names)  # the real stains still train

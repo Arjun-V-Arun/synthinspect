@@ -42,7 +42,7 @@ How the mask moves is set per category (`placement.mode`):
 
 For `metal_nut` and `screw`, `register: true` then refines the pose with image registration (OpenCV ECC, rotation and shift, with the defect masked out), so the source part's edges land exactly on the host's. On a synthetic part turned 6 degrees, this cuts the placement error from about 4 pixels to under 0.1.
 
-Whole-part defects are listed under `skip_synthesis` and no generator makes them: metal_nut's `flip` is the entire nut upside down, and pasting it stacks one nut on another. Detectors still train on the real ones.
+Defects that change the part's shape are listed under `skip_synthesis` and no generator makes them. Metal_nut's `flip` is the entire nut upside down, and pasting it stacks one nut on another. Screw's `manipulated_front` reshapes the tip: in 5 of 24 copy-paste samples the screw's own, longer tip still poked out past the pasted one. Detectors still train on the real examples of both, and the dataset builder leaves out any generated images of a skipped type.
 
 The first real `metal_nut` batches are why this exists. Free placement pasted pieces of nut lobes at wrong angles, and centre-only alignment still left faint double edges along long scratches.
 
@@ -54,7 +54,8 @@ RGCB's own paste, a square patch faded with sigma 0.8, is kept as `blend: radial
 
 **RGCB** (`gen/rgcb.py`, `gen/nst_hrnet.py`) is that copy-paste plus the RGCB pipeline's style step (Pawłowski et al., *Scientific Reports* 2022). A small high-resolution network (Li et al. 2019) is trained to restyle the whole composite toward a real good part:
 - **Losses:** content on VGG relu4_2, style on relu1_1 to relu5_1, weighted 150 to 0.5.
-- **Schedule:** 500 Adam steps per image, learning rate 0.005, decayed every 200 steps.
+- **Schedule:** 500 Adam steps for the first image of each category, learning rate 0.005, decayed every 200 steps. Later, warm-started images get 100 steps, because measurements showed the output had stopped changing by then (see LITERATURE.md, section 5). The convolutions run in bf16 for speed.
+- **Trace:** each image's metadata records the loss at a few steps and how far the output would have been from the final one had it stopped earlier; `scripts/compare_gen.py` summarises it.
 - **Warm start:** each image starts from the network trained on the previous one, and that network is saved after every image so an interrupted run resumes with it.
 
 Copy-paste on its own is the same pipeline minus this step, so comparing the two isolates what style transfer adds. Gatys pixel-optimisation NST (`gen/nst.py`) stays available as `nst_method: gatys`.

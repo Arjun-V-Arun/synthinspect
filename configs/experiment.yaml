@@ -21,6 +21,9 @@ categories:
   screw:
     # Random orientation: carry each defect along the screw's own axis (head stays on head, thread on thread).
     placement: {mode: axis, register: true, jitter: 0.0, foreground: auto}
+    # The tip itself is reshaped: in 5 of 24 copy-paste samples the screw's own tip still poked out past the
+    # pasted one. Like metal_nut flip, it changes the part's shape (real ones still train).
+    skip_synthesis: [manipulated_front]
     yolo_aug: {flipud: 0.5, degrees: 0.0}
 
 split:
